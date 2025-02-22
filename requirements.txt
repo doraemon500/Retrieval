@@ -1,0 +1,31 @@
+torch
+transformers==4.47.1
+numpy>=1.25.0,<2.0.0
+datasets==3.2.0
+evaluate==0.4.0
+pandas==2.0.1
+peft==0.14.0
+scipy==1.15.0
+streamlit==1.23.1
+
+# RAG dependencies
+elasticsearch
+rank_bm25==0.2.2
+faiss_cpu==1.9.0
+kiwipiepy==0.17.0
+
+# utils
+omegaconf==2.3.0
+python-dotenv==1.0.1
+trl==0.13.0
+tqdm==4.67.1
+
+# base 
+matplotlib>=3.4,!=3.6.1
+scikit-learn>=0.22
+catboost
+lightgbm>=4.1.0
+xgboost
+ipykernel
+ipywidgets
+httpx>=0.25.0

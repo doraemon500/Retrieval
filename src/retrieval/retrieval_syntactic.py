@@ -1,0 +1,175 @@
+import os
+import pickle
+import logging
+from typing import List, Optional
+import pandas as pd
+from datasets import Dataset
+from tqdm import tqdm
+
+import torch
+import numpy as np
+from rank_bm25 import BM25Plus
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+from .retrieval import Retrieval
+
+class Syntactic(Retrieval):
+    def __init__(
+        self,
+        tokenize_fn,
+        data_path: Optional[str] = "../../data/",
+        context_path: Optional[str] = "wiki_documents_original.csv",
+        vectorizer_type: str = "bm25",  
+        k1: Optional[float] = 1.837782128608009,
+        b: Optional[float] = 0.587622663072072,
+        delta: Optional[float] = 1.1490,
+        vectorizer_path: str = "../data/sparse_vectorizer.bin",
+        save_embedding: bool = False,
+        syntactic_model: Optional[Retrieval] = None
+    ):
+        self.data_path = data_path
+        with open(os.path.join(data_path, context_path), "r", encoding="utf-8") as f:
+            wiki = pd.read_csv(f)
+
+        self.contexts = list(dict.fromkeys(wiki['content']))
+        logging.info(f"Lengths of contexts : {len(self.contexts)}")
+        self.tokenize_fn = tokenize_fn
+        self.vectorizer_type = vectorizer_type
+        self.k1 = k1
+        self.b = b
+        self.delta = delta
+
+        self.syntactic_embeder = None
+        if syntactic_model is not None:
+            self.syntactic_embeder = syntactic_model
+        else:
+            self.fit_vectorizer(vectorizer_path, save_embedding)
+        self.syntactic_embeds = None
+
+    def transform(self, context):
+        return self.syntactic_embeder.transform(context)
+    
+    def get_scores(self, query):
+        if isinstance(self.syntactic_embeder, TfidfVectorizer):
+            query_vector = self.syntactic_embeder.transform([query])
+            return cosine_similarity(query_vector, self.syntactic_embeds)
+        elif isinstance(self.syntactic_embeder, BM25Plus):
+            return self.syntactic_embeder.get_scores(query)
+        
+    def retrieve(self, query_or_dataset, topk: Optional[int] = 1):
+        if isinstance(query_or_dataset, str):
+            doc_scores, doc_indices = self.get_relevant_doc(query_or_dataset, k=topk)
+            logging.info(f"[Search query] {query_or_dataset}")
+
+            for i in range(topk):
+                logging.info(f"Top-{i+1} passage with score {doc_scores[i]:4f}")
+                logging.info(self.contexts[doc_indices[i]])
+
+            return (doc_scores, [self.contexts[doc_indices[i]] for i in range(topk)])
+
+        elif isinstance(query_or_dataset, Dataset):
+            total = []
+            doc_scores, doc_indices = self.get_relevant_doc_bulk(
+                query_or_dataset["question"], k=topk
+            )
+            for idx, example in enumerate(tqdm(query_or_dataset, desc="[Sparse retrieval] ")):
+                tmp = {
+                    "question": example["question"],
+                    "id": example["id"],
+                    "context": " ".join([self.contexts[pid] for pid in doc_indices[idx]]),
+                }
+                if "context" in example.keys() and "answers" in example.keys():
+                    tmp["original_context"] = example["context"]
+                    tmp["answers"] = example["answers"]
+                total.append(tmp)
+
+            cqas = pd.DataFrame(total)
+            return cqas
+
+    def get_relevant_doc(self, query: str, k: Optional[int] = 1):
+        if self.vectorizer_type is 'tfidf':
+            query_vec = self.tfidfv.transform([query])
+            assert np.sum(query_vec) != 0, "Error: query contains no words in vocab."
+
+            result = query_vec * self.syntactic_embeds.T
+            if not isinstance(result, np.ndarray):
+                result = result.toarray()
+
+            sorted_result = np.argsort(result.squeeze())[::-1]
+            doc_score = result.squeeze()[sorted_result].tolist()[:k]
+            doc_indices = sorted_result.tolist()[:k]
+            return doc_score, doc_indices
+        elif self.vectorizer_type is 'bm25':
+            tokenized_query = [self.tokenizer(query)]
+            result = np.array([self.bm25.get_scores(query) for query in tokenized_query])
+            doc_scores = []
+            doc_indices = []
+            
+            for scores in result:
+                sorted_result = np.argsort(scores)[-k:][::-1]
+                doc_scores.append(scores[sorted_result].tolist())
+                doc_indices.append(sorted_result.tolist())
+            
+            return doc_scores, doc_indices
+
+    def get_relevant_doc_bulk(
+        self, queries: List, k: Optional[int] = 1):
+        if self.vectorizer_type is 'tfidf':
+            query_vec = self.tfidfv.transform(queries)
+            assert np.sum(query_vec) != 0, "Error: query contains no words in vocab."
+
+            result = query_vec * self.syntactic_embeds.T
+            if not isinstance(result, np.ndarray):
+                result = result.toarray()
+            doc_scores = []
+            doc_indices = []
+            for i in range(result.shape[0]):
+                sorted_result = np.argsort(result[i, :])[::-1]
+                doc_scores.append(result[i, :][sorted_result].tolist()[:k])
+                doc_indices.append(sorted_result.tolist()[:k])
+            return doc_scores, doc_indices
+        elif self.vectorizer_type is 'bm25':
+            tokenized_queries = [self.tokenizer(query) for query in queries]
+            result = np.array([self.bm25.get_scores(query) for query in tokenized_queries])
+            doc_scores = []
+            doc_indices = []
+            
+            for scores in result:
+                sorted_result = np.argsort(scores)[-k:][::-1]
+                doc_scores.append(scores[sorted_result].tolist())
+                doc_indices.append(sorted_result.tolist())
+            
+            return doc_scores, doc_indices
+        
+    def get_sparse_embedding(self, vectorizer_path="", save_embedding=False):
+        if os.path.isfile(vectorizer_path):
+            with open(vectorizer_path, "rb") as f:
+                self.syntatic_embeder = pickle.load(f)
+            if isinstance(self.syntatic_embeder, TfidfVectorizer):
+                self.syntatic_embeds = self.syntactic_embeder.transform(self.contexts)
+            print("Sparse vectorizer and embeddings loaded.")
+        else:
+            print("Fitting sparse vectorizer and building embeddings.")
+            if self.vectorizer_type.lower() == "bm25":
+                tokenized_corpus = [self.tokenize_fn(doc) for doc in self.contexts]
+                self.syntatic_embeder = BM25Plus(tokenized_corpus, k1=self.k1, b=self.b, delta=self.delta)
+            elif self.vectorizer_type.lower() == "tfidf":
+                self.syntatic_embeder = TfidfVectorizer(
+                    tokenizer=self.tokenize_fn,
+                    preprocessor=lambda x: x,
+                    token_pattern=None
+                )
+                self.syntactic_embeds = self.syntatic_embeder.fit_transform(self.contexts)
+            else:
+                raise ValueError(f"Unsupported vectorizer_type: {self.vectorizer_type}")
+
+            if save_embedding:
+                with open(vectorizer_path, "wb") as f:
+                    pickle.dump(self.syntatic_embeder, f)
+                print("Sparse vectorizer and embeddings saved.")
+            else:
+                print("Sparse vectorizer built (not saved).")
+
+if __name__ == "__main__":
+    pass

@@ -35,7 +35,7 @@ def llm_summary(llm, tokenizer, retrieved_contexts, max_response_tokens):
     )
 
     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    result = generated_text.split("model")[-1].strip()
+    result = generated_text.split("assistant")[-1].strip()
     if '\n' in result:
         result = result.split("\n")[0]
     del inputs, outputs, generated_text
@@ -76,7 +76,7 @@ def llm_check(llm, tokenizer, query):
     )
 
     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    result = generated_text.split("model")[-1].strip()
+    result = generated_text.split("assistant")[-1].strip()
     if '\n' in result:
         result = result.split("\n")[0]
     del inputs, outputs, generated_text

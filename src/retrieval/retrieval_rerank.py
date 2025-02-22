@@ -9,7 +9,7 @@ from datasets import Dataset
 from typing import  Optional, NoReturn
 from tqdm.auto import tqdm
 
-from .retrieval import HybridSearch
+from .retrieval_hybrid import HybridSearch
 from .retrieval_syntactic import Syntactic
 from .retrieval_semantic import Semantic
 from .retrieval import Retrieval

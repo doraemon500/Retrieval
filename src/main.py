@@ -15,7 +15,6 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, HfArgumentParser, 
 import retrieval
 from config import Config
 from retrieve import retrieve
-from utils import setup_logger
 
 def parse_args():
     parser = argparse.ArgumentParser(description="retrieval parameters")
@@ -44,6 +43,7 @@ def main():
     question = args.question
     device = run_config.device
     
+    quant_config = None
     if llm_config._4_bit_quant:
         quant_config=BitsAndBytesConfig(
                 load_in_4bit=True,
@@ -84,61 +84,79 @@ def main():
     )
 
     retriever = None
-    if retrieval_config.step_1_model is "Semantic":
+    if retrieval_config.step_1_model == "Semantic":
         if retrieval_config.use_Faiss:
             step_1_retriever = getattr(retrieval, retrieval_config.step_1_model)(
                 dense_model_name=retrieval_config.semantic_embeder,
                 index_output_path=retrieval_config.faiss_index_output_path,
-                chunked_path=retrieval_config.faiss_chunk_path
+                chunked_path=retrieval_config.faiss_chunk_path,
+                data_path=data_config.data_path,
+                context_path=data_config.context_path
             )
             step_1_retriever.get_dense_embedding_with_faiss()
         else:
             step_1_retriever = getattr(retrieval, retrieval_config.step_1_model)(
-                dense_model_name=retrieval_config.semantic_embeder
+                dense_model_name=retrieval_config.semantic_embeder,
+                data_path=data_config.data_path,
+                context_path=data_config.context_path
             )
             step_1_retriever.get_dense_embedding()
-    elif retrieval_config.step_1_model is "Syntactic":
+    elif retrieval_config.step_1_model == "Syntactic":
         step_1_retriever = getattr(retrieval, retrieval_config.step_1_model)(
             tokenize_fn=tokenizer,
-            vectorizer_type=retrieval_config.syntactic_embeder
+            vectorizer_type=retrieval_config.syntactic_embeder,
+            data_path=data_config.data_path,
+            context_path=data_config.context_path
         )
         step_1_retriever.get_sparse_embedding()
-    elif retrieval_config.step_1_model is "Elastic":
-        step_1_retriever = getattr(retrieval, retrieval_config.step_1_model)
-        if retrieval_config.elastic_type is "sparse":
+    elif retrieval_config.step_1_model == "Elastic":
+        step_1_retriever = getattr(retrieval, retrieval_config.step_1_model)(
+            data_path=data_config.data_path,
+            context_path=data_config.context_path
+        )
+        if retrieval_config.elastic_type == "sparse":
             step_1_retriever.get_sparse_embedding_with_elastic()
-        elif retrieval_config.elastic_type is "dense":
+        elif retrieval_config.elastic_type == "dense":
             step_1_retriever.get_dense_embedding_with_elastic()
 
-    if retrieval_config.step_2_retriever:
-        if retrieval_config.step_2_model is "Semantic":
+    if retrieval_config.step_2_model:
+        if retrieval_config.step_2_model == "Semantic":
             if retrieval_config.use_Faiss:
                 step_2_retriever = getattr(retrieval, retrieval_config.step_2_model)(
                     dense_model_name=retrieval_config.semantic_embeder,
                     index_output_path=retrieval_config.faiss_index_output_path,
-                    chunked_path=retrieval_config.faiss_chunk_path
+                    chunked_path=retrieval_config.faiss_chunk_path,
+                    data_path=data_config.data_path,
+                    context_path=data_config.context_path
                 )
                 step_2_retriever.get_dense_embedding_with_faiss()
             else:
                 step_2_retriever = getattr(retrieval, retrieval_config.step_2_model)(
-                    dense_model_name=retrieval_config.semantic_embeder
+                    dense_model_name=retrieval_config.semantic_embeder,
+                    data_path=data_config.data_path,
+                    context_path=data_config.context_path
                 )
                 step_2_retriever.get_dense_embedding()
-        elif retrieval_config.step_2_model is "Syntactic":
+        elif retrieval_config.step_2_model == "Syntactic":
             step_2_retriever = getattr(retrieval, retrieval_config.step_2_model)(
                 tokenize_fn=tokenizer,
-                vectorizer_type=retrieval_config.syntactic_embeder
+                vectorizer_type=retrieval_config.syntactic_embeder,
+                data_path=data_config.data_path,
+                context_path=data_config.context_path
             )
             step_2_retriever.get_sparse_embedding()
-        elif retrieval_config.step_2_model is "Elastic":
-            step_2_retriever = getattr(retrieval, retrieval_config.step_2_model)
-            if retrieval_config.elastic_type is "sparse":
+        elif retrieval_config.step_2_model == "Elastic":
+            step_2_retriever = getattr(retrieval, retrieval_config.step_2_model)(
+                data_path=data_config.data_path,
+                context_path=data_config.context_path
+            )
+            if retrieval_config.elastic_type == "sparse":
                 step_2_retriever.get_sparse_embedding_with_elastic()
-            elif retrieval_config.elastic_type is "dense":
+            elif retrieval_config.elastic_type == "dense":
                 step_2_retriever.get_dense_embedding_with_elastic()
 
     if retrieval_config.rerank:
-        retriever = getattr(retrieval, "Rerank")(
+        retriever = getattr(retrieval, "Reranker")(
             step1_model=step_1_retriever,
             step2_model=step_2_retriever
         )
@@ -157,10 +175,10 @@ def main():
         question=question,
         reference=reference
     )
-    inputs = tokenizer(llm_prompt)
+    inputs = tokenizer(llm_prompt, return_tensors="pt")
 
     outputs = model.generate(
-        inputs.to(device),
+        inputs['input_ids'].to(device),
         max_new_tokens=llm_config.max_txt_len,
         eos_token_id=tokenizer.eos_token_id,
         do_sample=True,

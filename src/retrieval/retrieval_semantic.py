@@ -2,6 +2,7 @@ import torch
 import logging
 import time
 import os
+import sys
 import pickle
 import pandas as pd
 from tqdm import tqdm
@@ -13,9 +14,10 @@ import scipy
 from torch.utils.data import Dataset
 from torch.nn.functional import normalize
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from .retrieval import Retrieval
-from ..indexer import IndexRunner, indexers
-from ..utils import get_passage_file
+from indexer import IndexRunner, indexers
+from utils import get_passage_file
 
 @contextmanager
 def timer(name):

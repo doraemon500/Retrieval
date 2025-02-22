@@ -6,19 +6,18 @@ llm:
   ckpt: "path/to/checkpoint.pth"  # (Optional) 학습된 모델 체크포인트 경로 (Default = "")
 
   # quantization
-  _4_bit_quant: True
+  _4_bit_quant: False
   _8_bit_quant: False
 
   # LoRA
-  lora: True  # (Optional) LoRA 활성화 여부 (Default = True)
+  lora: False  # (Optional) LoRA 활성화 여부 (Default = True)
   lora_rank: 8  # (Required) LoRA 랭크 값 (Default = 8)
   lora_alpha: 32  # (Required) LoRA 알파 값 (Default = 32)
   lora_dropout: 0.1  # (Required) LoRA 드롭아웃 비율 (Default = 0.1)
 
-  multi_prompt: True  # (Optional) 멀티 프롬프트 사용 여부 (Default = True)
   prompt_template: "'{question}'에 대한 답을 '{reference}'를 참조하여 대답하시오."  # (Required) 프롬프트 템플릿
 
-  max_txt_len: 2048  # (Required) 최대 텍스트 길이 (Default = 300)
+  max_txt_len: 500  # (Required) 최대 텍스트 길이 (Default = 300)
   end_sym: "<|im_end|>"  # (Required) 사용하는 LLM에 맞춰 변경
 
 retriever:
@@ -28,24 +27,24 @@ retriever:
 
   use_Faiss: True
   faiss_index_output_path: "2050iter_flat"
-  faiss_chunk_path: "../../data/processed_passages"
+  faiss_chunk_path: "data/processed_passages"
 
   step_1_model: "Semantic"
-  step_2_model: "Elastic"
+  step_2_model: "Syntactic"
 
   rerank: True
   hybrid: False
 
   rag_system_prompt: "지문을 읽고 참고문서를 참고하여 질문의 답을 구하세요."
-  rag_response_threshold: 2048 
+  rag_response_threshold: 500 
 
 datasets:
-  data_path: "../../data/"
-  context_path: "wiki_documents_original.csv"
+  data_path: "data/"
+  context_path: "wiki_documents_chunk3.csv"
 
 run:
   # log & settings
   seed: 42  # (Required) 랜덤 시드 값 (Default = 42)
   log_freq: 5  # (Optional) 로그 출력 주기 (Default = 5)
 
-  device: "cuda:0"  # (Required) 사용 GPU 설정, GPU index를 반드시 붙여야 함
+  device: "cuda"  # (Required) 사용 GPU 설정, GPU index를 반드시 붙여야 함

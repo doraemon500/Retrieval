@@ -8,13 +8,15 @@ from typing import List, Optional, Tuple, NoReturn
 transformers.logging.set_verbosity_error()  # 토크나이저 초기화 관련 warning suppress
 from tqdm import tqdm
 import os
+import sys
 import logging
 from typing import List, Tuple
 
-import src.indexer.indexers as indexers
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import indexer.indexers as indexers
 from .indexers import DenseIndexer
 from .chunk_data import DataChunk
-from ..utils import get_wiki_filepath, wiki_worker_init
+from utils import get_wiki_filepath, wiki_worker_init
 
 # logger basic config
 os.makedirs("logs", exist_ok=True)
@@ -34,7 +36,7 @@ class WikiArticleStream(torch.utils.data.IterableDataset):
         # self.chunk_size = chunk_size
         super(WikiArticleStream, self).__init__()
         self.chunker = chunker
-        self.pad_token_id = self.chunker.tokenizer.get_vocab()["<pad>"]
+        # self.pad_token_id = self.chunker.tokenizer.get_vocab()["<pad>"]
         self.wiki_path = wiki_path
         self.max_length = 168 
 
@@ -57,7 +59,7 @@ class IndexRunner:
         buffer_size: int = 50000,
         index_output_path: str = "",
         chunked_path: str = "",
-        device: str = "cuda:0",
+        device: str = "cuda",
         indexer: Optional[DenseIndexer] = None,
         use_faiss = False,
         use_elastic = False,

@@ -20,12 +20,13 @@ class ElasticIndexer():
             self,
             es_host: str = "localhost",
             es_port: int = 9200,
+            es_scheme: str = "http",
             index_name: str = 'documents'
         ) -> None:
-        self.es = Elasticsearch([{"host": es_host, "port": es_port}])
+        self.es = Elasticsearch([{"host": es_host, "port": es_port, "scheme": es_scheme}])
         self.index_name = index_name
     
-    def init_index(self):
+    def init_index(self, vector_sz: int):
         mapping = {
             "mappings": {
                 "properties": {

@@ -24,8 +24,7 @@ class Syntactic(Retrieval):
         k1: Optional[float] = 1.837782128608009,
         b: Optional[float] = 0.587622663072072,
         delta: Optional[float] = 1.1490,
-        vectorizer_path: str = "../data/sparse_vectorizer.bin",
-        save_embedding: bool = False,
+        vectorizer_path: str = "data/sparse_vectorizer.bin",
         syntactic_model: Optional[Retrieval] = None
     ):
         self.data_path = data_path
@@ -44,7 +43,7 @@ class Syntactic(Retrieval):
         if syntactic_model is not None:
             self.syntactic_embeder = syntactic_model
         else:
-            self.fit_vectorizer(vectorizer_path, save_embedding)
+            self.get_sparse_embedding(vectorizer_path)
         self.syntactic_embeds = None
 
     def transform(self, context):
@@ -88,7 +87,7 @@ class Syntactic(Retrieval):
             return cqas
 
     def get_relevant_doc(self, query: str, k: Optional[int] = 1):
-        if self.vectorizer_type is 'tfidf':
+        if self.vectorizer_type == 'tfidf':
             query_vec = self.tfidfv.transform([query])
             assert np.sum(query_vec) != 0, "Error: query contains no words in vocab."
 
@@ -100,7 +99,7 @@ class Syntactic(Retrieval):
             doc_score = result.squeeze()[sorted_result].tolist()[:k]
             doc_indices = sorted_result.tolist()[:k]
             return doc_score, doc_indices
-        elif self.vectorizer_type is 'bm25':
+        elif self.vectorizer_type == 'bm25':
             tokenized_query = [self.tokenizer(query)]
             result = np.array([self.bm25.get_scores(query) for query in tokenized_query])
             doc_scores = []
@@ -115,7 +114,7 @@ class Syntactic(Retrieval):
 
     def get_relevant_doc_bulk(
         self, queries: List, k: Optional[int] = 1):
-        if self.vectorizer_type is 'tfidf':
+        if self.vectorizer_type == 'tfidf':
             query_vec = self.tfidfv.transform(queries)
             assert np.sum(query_vec) != 0, "Error: query contains no words in vocab."
 
@@ -129,7 +128,7 @@ class Syntactic(Retrieval):
                 doc_scores.append(result[i, :][sorted_result].tolist()[:k])
                 doc_indices.append(sorted_result.tolist()[:k])
             return doc_scores, doc_indices
-        elif self.vectorizer_type is 'bm25':
+        elif self.vectorizer_type == 'bm25':
             tokenized_queries = [self.tokenizer(query) for query in queries]
             result = np.array([self.bm25.get_scores(query) for query in tokenized_queries])
             doc_scores = []
@@ -142,7 +141,7 @@ class Syntactic(Retrieval):
             
             return doc_scores, doc_indices
         
-    def get_sparse_embedding(self, vectorizer_path="", save_embedding=False):
+    def get_sparse_embedding(self, vectorizer_path=""):
         if os.path.isfile(vectorizer_path):
             with open(vectorizer_path, "rb") as f:
                 self.syntatic_embeder = pickle.load(f)
@@ -164,7 +163,7 @@ class Syntactic(Retrieval):
             else:
                 raise ValueError(f"Unsupported vectorizer_type: {self.vectorizer_type}")
 
-            if save_embedding:
+            if vectorizer_path:
                 with open(vectorizer_path, "wb") as f:
                     pickle.dump(self.syntatic_embeder, f)
                 print("Sparse vectorizer and embeddings saved.")

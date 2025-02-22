@@ -2,6 +2,8 @@ from glob import glob
 import math
 import typing
 import logging
+import random
+import numpy as np
 
 import torch
 from peft import PeftModel
@@ -36,6 +38,12 @@ def get_passage_file(p_id_list: typing.List[int]) -> str:
         logging.debug(f"No file found for passage IDs: {p_id_list}")
     return target_file
 
-def apply_lora(model, adaptor_path):
-    lora_model = PeftModel.from_pretrained(model, adaptor_path)
-    return lora_model
+def set_seed(seed: int = 42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True)

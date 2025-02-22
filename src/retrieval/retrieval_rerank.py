@@ -65,7 +65,7 @@ class Reranker(Retrieval):
                 datas = self.step1_model.retrieve(queries, topk=topk)
                 return datas
     
-    def _step2_retrieve(self, queries, topk: Optional[int] = 1, alpha: Optional[int]=0.5):
+    def _step2_retrieve(self, queries, contexts, topk: Optional[int] = 1, alpha: Optional[int]=0.5):
         if isinstance(self.step2_model, HybridSearch):
             if isinstance(queries, str):
                 doc_scores, doc_contexts = self.step2_model.retrieve(queries, topk=topk, alpha=alpha)

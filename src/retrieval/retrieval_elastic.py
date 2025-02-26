@@ -18,9 +18,14 @@ class Elastic(Retrieval):
         es_port: int = 9200,
         es_scheme: str = "http",
         index_name: str = "documents",
-        model_name: str = "bert-base-uncased",
-        indexer_type: str = "ElasticIndexer"
+        model_name: str = "BAAI/bge-m3",
+        indexer_type: str = "ElasticIndexer",
+        device = None
     ):  
+        if device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = device
         self.data_path = data_path
         self.context_path = context_path
         self.es_host = es_host
@@ -33,7 +38,7 @@ class Elastic(Retrieval):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.encoder = AutoModel.from_pretrained(model_name)
 
-    def get_sparse_embedding_with_elastic(self):
+    def get_sparse_embedding_with_elastic(self, contexts=None):
         self.indexer = getattr(indexers, self.indexer_type)()
         IndexRunner(
                 encoder=self.encoder,
@@ -41,7 +46,8 @@ class Elastic(Retrieval):
                 data_dir=os.path.join(self.data_path, self.context_path),
                 indexer_type=self.indexer_type,
                 indexer=self.indexer,
-                use_elastic=True
+                use_elastic=True,
+                contexts=contexts
             ).run()
 
     def get_dense_embedding_with_elastic(self):

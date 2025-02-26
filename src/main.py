@@ -41,7 +41,7 @@ def main():
     data_config = cfg.config.datasets
 
     question = args.question
-    device = run_config.device
+    DEVICE = run_config.device
     
     quant_config = None
     if llm_config._4_bit_quant:
@@ -63,8 +63,7 @@ def main():
             torch_dtype=torch.float32 if not isinstance(quant_config, BitsAndBytesConfig) else None,
             trust_remote_code=True,
             quantization_config=quant_config if isinstance(quant_config, BitsAndBytesConfig) else None,
-            device_map="auto",
-        )
+        ).to(DEVICE)
     
     if llm_config.lora:
         peft_config = LoraConfig(
@@ -91,14 +90,17 @@ def main():
                 index_output_path=retrieval_config.faiss_index_output_path,
                 chunked_path=retrieval_config.faiss_chunk_path,
                 data_path=data_config.data_path,
-                context_path=data_config.context_path
+                context_path=data_config.context_path,
+                FAISS=retrieval_config.use_Faiss,
+                device=DEVICE
             )
             step_1_retriever.get_dense_embedding_with_faiss()
         else:
             step_1_retriever = getattr(retrieval, retrieval_config.step_1_model)(
                 dense_model_name=retrieval_config.semantic_embeder,
                 data_path=data_config.data_path,
-                context_path=data_config.context_path
+                context_path=data_config.context_path,
+                device=DEVICE
             )
             step_1_retriever.get_dense_embedding()
     elif retrieval_config.step_1_model == "Syntactic":
@@ -112,7 +114,8 @@ def main():
     elif retrieval_config.step_1_model == "Elastic":
         step_1_retriever = getattr(retrieval, retrieval_config.step_1_model)(
             data_path=data_config.data_path,
-            context_path=data_config.context_path
+            context_path=data_config.context_path,
+            device=DEVICE
         )
         if retrieval_config.elastic_type == "sparse":
             step_1_retriever.get_sparse_embedding_with_elastic()
@@ -127,14 +130,17 @@ def main():
                     index_output_path=retrieval_config.faiss_index_output_path,
                     chunked_path=retrieval_config.faiss_chunk_path,
                     data_path=data_config.data_path,
-                    context_path=data_config.context_path
+                    context_path=data_config.context_path,
+                    FAISS=retrieval_config.use_Faiss,
+                    device=DEVICE
                 )
                 step_2_retriever.get_dense_embedding_with_faiss()
             else:
                 step_2_retriever = getattr(retrieval, retrieval_config.step_2_model)(
                     dense_model_name=retrieval_config.semantic_embeder,
                     data_path=data_config.data_path,
-                    context_path=data_config.context_path
+                    context_path=data_config.context_path,
+                    device=DEVICE
                 )
                 step_2_retriever.get_dense_embedding()
         elif retrieval_config.step_2_model == "Syntactic":
@@ -148,7 +154,8 @@ def main():
         elif retrieval_config.step_2_model == "Elastic":
             step_2_retriever = getattr(retrieval, retrieval_config.step_2_model)(
                 data_path=data_config.data_path,
-                context_path=data_config.context_path
+                context_path=data_config.context_path,
+                device=DEVICE
             )
             if retrieval_config.elastic_type == "sparse":
                 step_2_retriever.get_sparse_embedding_with_elastic()
@@ -178,7 +185,7 @@ def main():
     inputs = tokenizer(llm_prompt, return_tensors="pt")
 
     outputs = model.generate(
-        inputs['input_ids'].to(device),
+        inputs['input_ids'].to(DEVICE),
         max_new_tokens=llm_config.max_txt_len,
         eos_token_id=tokenizer.eos_token_id,
         do_sample=True,

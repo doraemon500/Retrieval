@@ -38,7 +38,7 @@ class HybridSearch(Retrieval):
         data_path: Optional[str] = "../../data/",
         context_path: Optional[str] = "wiki_documents_original.csv",
     ) -> NoReturn:
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.tokenize_fn = tokenize_fn
 
         self.step1_model = step1_model

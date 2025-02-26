@@ -37,7 +37,7 @@ def truncation(tokenizer, contexts: str, max_response_tokens):
     truncated_context = tokenizer.decode(token_ids, skip_special_tokens=True)
     return truncated_context
 
-def retrieve(retriever: Optional[Retrieval], llm, tokenizer, messages, max_seq_length, cfg: Config, topk: int=5):
+def retrieve(retriever: Optional[Retrieval], llm, tokenizer, messages, max_seq_length, cfg: Config, topk: int = 5, device = None):
     retriever_cfg = cfg.config.retriever
     prompt_tokens = len_of_tokens(tokenizer, messages)
     chat_template_tokens = len_of_chat_template(tokenizer, retriever_cfg) + 10
@@ -51,13 +51,13 @@ def retrieve(retriever: Optional[Retrieval], llm, tokenizer, messages, max_seq_l
         return None
 
     query = messages
-    result = llm_check(llm, tokenizer, query)
+    result = llm_check(llm, tokenizer, query, device=device)
     # result = "필요함"
     logging.info(query)
     logging.info(f"[RAG가 필요한가?] {result}")
     if '필요함' in result:
         _ , contexts = retriever.retrieve(query, topk=topk)
-        summary = llm_summary(llm, tokenizer, ' '.join(contexts), max_response_tokens)
+        summary = llm_summary(llm, tokenizer, ' '.join(contexts), max_response_tokens, device=device)
         # summary = truncation(tokenizer, ' '.join(contexts)[:], max_response_tokens)
         logging.info(f"[RAG & Summary] {summary}")
         return summary

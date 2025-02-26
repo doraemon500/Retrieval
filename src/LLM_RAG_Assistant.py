@@ -2,12 +2,15 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers import BitsAndBytesConfig
 
-def llm_summary(llm, tokenizer, retrieved_contexts, max_response_tokens):
+def llm_summary(llm, tokenizer, retrieved_contexts, max_response_tokens, device):
     """
     주어진 문맥과 관련 내용을 바탕으로, 문제 해결에 도움이 될 핵심 포인트를 요약합니다.
     요약은 max_response_tokens 길이로 생성되며, 추가 설명 없이 요약문만 출력됩니다.
     """
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = device
     messages = [
         {"role": "system", 
          "content": (
@@ -42,12 +45,15 @@ def llm_summary(llm, tokenizer, retrieved_contexts, max_response_tokens):
         
     return result
 
-def llm_check(llm, tokenizer, query):
+def llm_check(llm, tokenizer, query, device):
     """
     주어진 텍스트에 대해, 문제 해결을 위해 검색 보강 생성(RAG)이 필요한지 평가합니다.
     텍스트를 바탕으로 RAG가 필요하면 '필요함', 불필요하면 '필요하지 않음'을 별도의 설명 없이 출력합니다.
     """
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = device
     prompt = (
         "다음은 텍스트입니다. 해당 텍스트를 바탕으로 문제 해결을 위해 검색 보강 생성(RAG)이 필요한지 판별하세요.\n\n"
         f"텍스트: '{query}'\n\n"

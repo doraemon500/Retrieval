@@ -17,9 +17,12 @@ class DataChunk:
         self.tokenizer = tokenizer
         self.chunked_path = chunked_path
 
-    def chunk(self, input_file):
-        with open(input_file, "r", encoding="utf8") as f:
-            input_txt = pd.read_csv(input_file)
+    def chunk(self, input_file_path, input_file):
+        if input_file is not None:
+            input_txt = input_file
+        else:
+            with open(input_file_path, "r", encoding="utf8") as f:
+                input_txt = pd.read_csv(input_file_path)
         chunk_list = []
         orig_text = []
         for _ , art in tqdm(input_txt.iterrows(), desc="[chunking]", total=len(input_txt)):
@@ -43,16 +46,18 @@ class DataChunk:
 
     def chunk_and_save_orig_passage(
         self, 
+        input_file_path,
         input_file
     ):
         passage_path = self.chunked_path
+        resource_doc_name = input_file_path.split("/")[-1].replace(".", "_")
         os.makedirs(passage_path, exist_ok=True)
         idx = 0
-        orig_text, chunk_list = self.chunk(input_file)
+        orig_text, chunk_list = self.chunk(input_file_path, input_file)
         if passage_path:
             os.makedirs(passage_path, exist_ok=True)
             to_save = {idx + i: orig_text[i] for i in range(len(orig_text))}
-            with open(f"{passage_path}/{idx}-{idx+len(orig_text)-1}.p", "wb") as f:
+            with open(f"{passage_path}/{resource_doc_name}-{idx}-{idx+len(orig_text)-1}.p", "wb") as f:
                 pickle.dump(to_save, f)
         return orig_text, chunk_list
 

@@ -12,6 +12,7 @@ from tqdm.auto import tqdm
 from .retrieval_hybrid import HybridSearch
 from .retrieval_syntactic import Syntactic
 from .retrieval_semantic import Semantic
+from .retrieval_elastic import Elastic
 from .retrieval import Retrieval
 from utils import set_seed
 
@@ -67,6 +68,22 @@ class Reranker(Retrieval):
     
     def _step2_retrieve(self, queries, contexts, topk: Optional[int] = 1, alpha: Optional[int]=0.5):
         if isinstance(self.step2_model, HybridSearch):
+            if isinstance(self.step2_model.step1_model, Syntactic):
+                self.step2_model.step1_model.contexts = contexts
+                self.step2_model.step1_model.get_sparse_embedding(vectorizer_path=f"data/rerank_syntactic_{self.step2_model.step2_model.vectorizer_type}.bin")
+            elif isinstance(self.step2_model.step1_model, Semantic):
+                self.step2_model.step1_model.get_dense_embedding_with_faiss(contexts)
+            elif isinstance(self.step2_model.step1_model, Elastic):
+                self.step2_model.step1_model.get_sparse_embedding_with_elastic(contexts)
+
+            if isinstance(self.step2_model.step2_model, Syntactic):
+                self.step2_model.step2_model.contexts = contexts
+                self.step2_model.step2_model.get_sparse_embedding(vectorizer_path=f"data/rerank_syntactic_{self.step2_model.step2_model.vectorizer_type}.bin")
+            elif isinstance(self.step2_model.step2_model, Semantic):
+                self.step2_model.step2_model.get_dense_embedding_with_faiss(contexts)
+            elif isinstance(self.step2_model.step2_model, Elastic):
+                self.step2_model.step2_model.get_sparse_embedding_with_elastic(contexts)
+
             if isinstance(queries, str):
                 doc_scores, doc_contexts = self.step2_model.retrieve(queries, topk=topk, alpha=alpha)
                 return doc_scores, doc_contexts
@@ -74,6 +91,14 @@ class Reranker(Retrieval):
                 datas = self.step2_model.retrieve(queries, topk=topk, alpha=alpha)
                 return datas
         else:
+            if isinstance(self.step2_model, Syntactic):
+                self.step2_model.contexts = contexts
+                self.step2_model.get_sparse_embedding(vectorizer_path=f"data/rerank_syntactic_{self.step2_model.vectorizer_type}.bin")
+            elif isinstance(self.step2_model, Semantic):
+                self.step2_model.get_dense_embedding_with_faiss(contexts)
+            elif isinstance(self.step2_model, Elastic):
+                self.step2_model.get_sparse_embedding_with_elastic(contexts)
+
             if isinstance(queries, str):
                 doc_scores, doc_contexts = self.step2_model.retrieve(queries, topk=topk)
                 return doc_scores, doc_contexts
@@ -81,7 +106,7 @@ class Reranker(Retrieval):
                 datas = self.step2_model.retrieve(queries, topk=topk)
                 return datas
 
-    def retrieve(self, query_or_dataset, topk: Optional[int] = 1, alpha_1: Optional[int] = 0, alpha_2: Optional[int] = 0):
+    def retrieve(self, query_or_dataset, topk: Optional[int] = 5, alpha_1: Optional[int] = 0, alpha_2: Optional[int] = 0):
         retrieved_contexts = []
         if isinstance(query_or_dataset, str):
             _, doc_contexts = self._step1_retrieve(query_or_dataset, topk, alpha=alpha_1)
@@ -91,24 +116,26 @@ class Reranker(Retrieval):
                 doc_contexts = self._step1_retrieve(example['question'], topk, alpha=alpha_1)
                 retrieved_contexts.append(doc_contexts)
 
+        print(retrieved_contexts)
         half_topk = int(topk / 2)
+        print(half_topk)
 
         if isinstance(query_or_dataset, str):
-            _, second_datas = self._step2_retrieve(query_or_dataset, half_topk, contexts=retrieved_contexts, alpha=alpha_2)
-            return second_datas
+            _, second_retrieved_contexts = self._step2_retrieve(query_or_dataset, retrieved_contexts, half_topk, alpha=alpha_2)
+            return second_retrieved_contexts
         elif isinstance(query_or_dataset, Dataset):
-            second_datas = []
+            second_retrieved_contexts = []
             for idx, example in enumerate(tqdm(query_or_dataset, desc="[Rerank second retrieval] ")):
                 context = retrieved_contexts[idx]
-                doc_contexts = self._step2_retrieve(example['question'], half_topk, contexts=context, alpha=alpha_2)
+                doc_contexts = self._step2_retrieve(example['question'], context, half_topk, alpha=alpha_2)
                 template = {
                     "question": example["question"],
                     "id": example["id"],
                     "context": " ".join(doc_contexts),
                 }
-                second_datas.append(template)
-            second_datas = pd.DataFrame(second_datas)
-            return second_datas
+                second_retrieved_contexts.append(template)
+            second_retrieved_contexts = pd.DataFrame(second_retrieved_contexts)
+            return second_retrieved_contexts
 
 if __name__ == "__main__":
     pass

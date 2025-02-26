@@ -62,8 +62,20 @@ class Semantic(Retrieval):
         context_path: Optional[str] = "wiki_docs.csv", #"wiki_documents_original.csv",
         index_output_path: Optional[str] = "2050iter_flat",
         chunked_path: Optional[str] = "../../data/processed_passages",
+        FAISS: bool = False,
+        device = None
     ):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if device is None:
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = device
+            
+        self.contexts = None
+        if not FAISS:
+            with open(os.path.join(data_path, context_path), "r", encoding="utf-8") as f:
+                wiki = pd.read_csv(f)
+            self.contexts = list(dict.fromkeys(wiki['content']))
+
         self.data_path = data_path
         self.context_path = context_path
         self.index_output_path = index_output_path
@@ -71,13 +83,14 @@ class Semantic(Retrieval):
         self.indexer_type = indexer_type
         self.indexer = None
         self.dense_model_name = dense_model_name
-        self.dense_tokenize_fn = AutoTokenizer.from_pretrained(
+        self.tokenize_fn = AutoTokenizer.from_pretrained(
                 self.dense_model_name
             )
         self.dense_embeder = AutoModel.from_pretrained(
                 self.dense_model_name
             ).to(self.device)
         self.dense_embeds = None
+        
         
     def get_dense_embedding(self, query=None, contexts=None, batch_size=64):
         if contexts is not None:
@@ -112,24 +125,25 @@ class Semantic(Retrieval):
                 torch.save(self.dense_embeds, emd_path)
                 print("Dense embeddings saved.")
 
-    def get_dense_embedding_with_faiss(self):
+    def get_dense_embedding_with_faiss(self, contexts=None):
         self.indexer = getattr(indexers, self.indexer_type)()
         if self.indexer.index_exists(self.index_output_path):
             self.indexer.deserialize(self.index_output_path)
         else:
             IndexRunner(
                 encoder=self.dense_embeder,
-                tokenizer=self.dense_tokenize_fn,
+                tokenizer=self.tokenize_fn,
                 data_dir=os.path.join(self.data_path, self.context_path),
                 indexer_type=self.indexer_type,
                 index_output_path=os.path.join(self.data_path, self.index_output_path),
                 chunked_path=os.path.join(self.data_path, self.chunked_path),
                 indexer=self.indexer,
                 use_faiss=True,
+                contexts=contexts
             ).run()
 
     def transform(self, contexts):
-        encoded_input = self.dense_tokenize_fn(
+        encoded_input = self.tokenize_fn(
                 contexts, padding=True, truncation=True, return_tensors='pt'
             ).to(self.device)
         with torch.no_grad():
@@ -179,7 +193,7 @@ class Semantic(Retrieval):
     def get_relevant_doc_with_faiss(
             self, query: str, k: Optional[int] = 1
         ) -> Tuple[List, List]:
-        encoded_input = self.dense_tokenize_fn(
+        encoded_input = self.tokenize_fn(
                 query, padding=True, truncation=True, return_tensors='pt'
             ).to(self.device)
         with torch.no_grad():
@@ -190,7 +204,7 @@ class Semantic(Retrieval):
             passages = []
             scores = []
             for idx, sim in zip(*result[0]): # idx, sim
-                path = get_passage_file([idx])
+                path = get_passage_file(os.path.join(self.data_path, self.chunked_path), [idx])
                 if not path:
                     logging.debug(f"올바른 경로에 피클화된 위키피디아가 있는지 확인하세요.No single passage path for {idx}")
                     continue
@@ -205,7 +219,7 @@ class Semantic(Retrieval):
     def get_relevant_doc_bulk_with_faiss(
         self, queries: List[str], k: Optional[int] = 1
     ) -> Tuple[List, List]:
-        encoded_input = self.dense_tokenize_fn(
+        encoded_input = self.tokenize_fn(
                 queries, padding=True, truncation=True, return_tensors='pt'
             ).to(self.device)
         with torch.no_grad():
@@ -219,7 +233,7 @@ class Semantic(Retrieval):
                 doc_score = []
                 doc_indice = []
                 for idx, sim in zip(*result[index]): # idx, sim
-                    path = get_passage_file([idx])
+                    path = get_passage_file(os.path.join(self.data_path, self.chunked_path), [idx])
                     if not path:
                         logging.debug(f"올바른 경로에 피클화된 위키피디아가 있는지 확인하세요. No single passage path for {idx}")
                         continue

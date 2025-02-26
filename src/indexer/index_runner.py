@@ -32,17 +32,18 @@ def wiki_collator(batch: List, padding_value: int) -> Tuple[torch.Tensor]:
 
 
 class WikiArticleStream(torch.utils.data.IterableDataset):
-    def __init__(self, wiki_path, chunker):
+    def __init__(self, wiki_path, wiki_contexts, chunker):
         # self.chunk_size = chunk_size
         super(WikiArticleStream, self).__init__()
         self.chunker = chunker
-        # self.pad_token_id = self.chunker.tokenizer.get_vocab()["<pad>"]
+        self.pad_token_id = self.chunker.tokenizer.get_vocab()["<pad>"]
         self.wiki_path = wiki_path
+        self.wiki_contexts = wiki_contexts
         self.max_length = 168 
 
     def __iter__(self):
-        _, passages = self.chunker.chunk_and_save_orig_passage(input_file=self.wiki_path)
-        logger.debug(f"chunked file {self.wiki_path}")
+        _, passages = self.chunker.chunk_and_save_orig_passage(input_file_path=self.wiki_path, input_file=self.wiki_contexts)
+        logger.debug(f"chunked file path {self.wiki_path}")
         for passage in passages:
             yield passage
 
@@ -63,11 +64,12 @@ class IndexRunner:
         indexer: Optional[DenseIndexer] = None,
         use_faiss = False,
         use_elastic = False,
-        index_name: str = 'documents'
+        index_name: str = 'documents',
+        contexts = None
     ):
         """
-        data_dir : 인덱싱할 한국어 wiki 데이터가 들어있는 디렉토리입니다. 하위에 AA, AB와 같은 디렉토리가 있습니다.
-        indexer_type : 사용할 FAISS indexer 종류로 DPR 리포에 있는 대로 Flat, HNSWFlat, HNSWSQ 세 종류 중에 사용할 수 있습니다.
+        data_dir : 인덱싱할 한국어 wiki 데이터가 들어있는 디렉토리입니다.
+        indexer_type : 사용할 FAISS indexer 종류로 DPR 리포에 있는 대로 Flat, HNSWFlat, HNSWSQ 세 종류와 Elastic indexer 중에 사용할 수 있습니다.
         chunk_size : indexing과 searching의 단위가 되는 passage의 길이입니다. DPR 논문에서는 100개 token 길이 + title로 하나의 passage를 정의하였습니다.
         """
         if "=" in data_dir:
@@ -79,6 +81,7 @@ class IndexRunner:
             self.wiki_files = [self.data_dir] # get_wiki_filepath(self.data_dir)
             self.to_this_page = len(self.wiki_files)
 
+        self.contexts = contexts
         self.device = torch.device(device)
         self.encoder = encoder
         self.tokenizer = tokenizer
@@ -96,6 +99,7 @@ class IndexRunner:
                 self.tokenizer,
                 #self.wiki_files[: self.to_this_page],
                 self.wiki_files,
+                self.contexts,
                 chunk_size,
                 batch_size,
                 worker_init_fn=None,
@@ -107,6 +111,7 @@ class IndexRunner:
                 self.tokenizer,
                 #self.wiki_files[: self.to_this_page],
                 self.wiki_files,
+                self.contexts,
                 chunk_size,
                 batch_size,
                 worker_init_fn=None,
@@ -119,10 +124,10 @@ class IndexRunner:
         self.index_output_path = index_output_path if index_output_path else indexer_type
 
     @staticmethod
-    def get_loader_for_Faiss(tokenizer, wiki_files, chunk_size, batch_size, worker_init_fn=None, chunked_path: str = ""):
+    def get_loader_for_Faiss(tokenizer, wiki_files, contexts, chunk_size, batch_size, worker_init_fn=None, chunked_path: str = ""):
         chunker = DataChunk(chunk_size=chunk_size, tokenizer=tokenizer, chunked_path=chunked_path)
         ds = torch.utils.data.ChainDataset(
-            tuple(WikiArticleStream(path, chunker) for path in wiki_files)
+            tuple(WikiArticleStream(path, contexts, chunker) for path in wiki_files)
         )
         loader = torch.utils.data.DataLoader(
             ds,
@@ -136,10 +141,10 @@ class IndexRunner:
         return loader
     
     @staticmethod
-    def get_loader_for_Elastic(tokenizer, wiki_files, chunk_size, batch_size, worker_init_fn=None, chunked_path: str = ""):
+    def get_loader_for_Elastic(tokenizer, wiki_files, contexts, chunk_size, batch_size, worker_init_fn=None, chunked_path: str = ""):
         chunker = DataChunk(chunk_size=chunk_size, tokenizer=tokenizer, chunked_path=chunked_path)
         ds = torch.utils.data.ChainDataset(
-            tuple(WikiArticleStream(path, chunker) for path in wiki_files)
+            tuple(WikiArticleStream(path, contexts, chunker) for path in wiki_files)
         )
         loader = torch.utils.data.DataLoader(
             ds,
@@ -194,9 +199,4 @@ class IndexRunner:
 
 
 if __name__ == "__main__":
-    IndexRunner(
-        data_dir="text",
-        model_ckpt_path="checkpoint/2050iter_model.pt",
-        index_output="2050iter_flat",
-    ).run()
-    # test_loader()
+    pass

@@ -27,10 +27,10 @@ retriever:
 
   use_Faiss: True
   faiss_index_output_path: "2050iter_flat"
-  faiss_chunk_path: "data/processed_passages"
+  faiss_chunk_path: "processed_passages"
 
-  step_1_model: "Semantic"
-  step_2_model: "Syntactic"
+  step_1_model: "Syntactic" #"Semantic" 
+  step_2_model: "Semantic"  #"Syntactic"
 
   rerank: True
   hybrid: False
@@ -40,11 +40,9 @@ retriever:
 
 datasets:
   data_path: "data/"
-  context_path: "wiki_documents_chunk3.csv"
+  context_path: "wiki_documents_chunk2.csv"
 
 run:
   # log & settings
   seed: 42  # (Required) 랜덤 시드 값 (Default = 42)
-  log_freq: 5  # (Optional) 로그 출력 주기 (Default = 5)
-
-  device: "cuda"  # (Required) 사용 GPU 설정, GPU index를 반드시 붙여야 함
+  device: "cuda:0"  # (Required) 사용 GPU 설정, GPU index를 반드시 붙여야 함

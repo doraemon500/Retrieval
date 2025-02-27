@@ -22,18 +22,20 @@ llm:
 
 retriever:
   semantic_embeder: "BAAI/bge-m3"
-  syntactic_embeder: "bm25"
+  syntactic_embeder: "tfidf"
   elastic_type: "sparse"
 
-  use_Faiss: True
+  use_Faiss: False
   faiss_index_output_path: "2050iter_flat"
   faiss_chunk_path: "processed_passages"
 
-  step_1_model: "Semantic" 
-  step_2_model: "Syntactic"
+  step_1_model: "Syntactic"
+  step_2_model: "Semantic" 
 
-  rerank: True
-  hybrid: False
+  rerank: False
+  hybrid: True
+  
+  topk: 5
 
   rag_system_prompt: "지문을 읽고 참고문서를 참고하여 질문에 적절한 답변을 해주세요."
   rag_response_threshold: 500 

@@ -92,7 +92,7 @@ class Semantic(Retrieval):
         self.dense_embeds = None
         
         
-    def get_dense_embedding(self, query=None, contexts=None, batch_size=64):
+    def get_dense_embedding(self, query=None, contexts=None, batch_size=32):
         if contexts is not None:
             self.contexts = contexts
             self.dense_embeds = self.output(self.contexts).cpu()
@@ -116,8 +116,14 @@ class Semantic(Retrieval):
 
                 for i in tqdm(range(0, len(self.contexts), batch_size), desc="Encoding passages"):
                     batch_contexts = self.contexts[i:i+batch_size]
-                    sentence_embeddings = self.dense_embeder.output(batch_contexts)
-                    sentence_embeddings = normalize(sentence_embeddings, p=2, dim=1)
+                    encoded_input = self.tokenize_fn(
+                        batch_contexts, padding=True, truncation=True, return_tensors='pt'
+                    ).to(self.device)
+                    with torch.no_grad():
+                        model_output = self.dense_embeder(**encoded_input)
+                    sentence_embeddings = mean_pooling(model_output, encoded_input['attention_mask'])
+                    print(self.dense_embeds[i].shape)
+                    print(model_output[0].shape)
                     self.dense_embeds[i] = sentence_embeddings.cpu()
                     del encoded_input, model_output, sentence_embeddings 
                     torch.cuda.empty_cache()  

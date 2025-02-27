@@ -166,19 +166,22 @@ def main():
     if retrieval_config.rerank:
         retriever = getattr(retrieval, "Reranker")(
             step1_model=step_1_retriever,
-            step2_model=step_2_retriever
+            step2_model=step_2_retriever,
+
         )
     elif retrieval_config.hybrid:
         retriever = getattr(retrieval, "HybridSearch")(
             tokenize_fn=tokenizer,
             step1_model=step_1_retriever,
-            step2_model=step_2_retriever
+            step2_model=step_2_retriever,
+            data_path=data_config.data_path,
+            context_path=data_config.context_path
         )
     
     if retriever is None:
         retriever = step_1_retriever
     
-    reference = retrieve(retriever, model, tokenizer, question, llm_config.max_txt_len, cfg)
+    reference = retrieve(retriever, model, tokenizer, question, llm_config.max_txt_len, cfg, topk=retrieval_config.topk)
     llm_prompt = llm_config.prompt_template.format(
         question=question,
         reference=reference

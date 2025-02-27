@@ -21,9 +21,9 @@ class Syntactic(Retrieval):
         data_path: Optional[str] = "../../data/",
         context_path: Optional[str] = "wiki_documents_original.csv",
         vectorizer_type: str = "bm25",  
-        k1: Optional[float] = 1.837782128608009,
-        b: Optional[float] = 0.587622663072072,
-        delta: Optional[float] = 1.1490,
+        k1: Optional[float] = 1.5,
+        b: Optional[float] = 0.75,
+        delta: Optional[float] = 0.5,
         vectorizer_path: str = "data/sparse_vectorizer.bin",
     ):
         self.data_path = data_path
@@ -41,6 +41,16 @@ class Syntactic(Retrieval):
 
         self.syntactic_embeder = None
         self.syntactic_embeds = None
+
+    def custom_analyzer(self, doc):
+        tokens = self.tokenize_fn(doc)
+        if hasattr(tokens, 'tokens'):
+            tokens_attr = tokens.tokens
+            if callable(tokens_attr):
+                tokens = tokens_attr()
+            else:
+                tokens = tokens_attr
+        return tokens
     
     def get_sparse_embedding(self, vectorizer_path=""):
         if not vectorizer_path:
@@ -58,9 +68,7 @@ class Syntactic(Retrieval):
                 self.syntactic_embeder = BM25Plus(tokenized_corpus, k1=self.k1, b=self.b, delta=self.delta)
             elif self.vectorizer_type.lower() == "tfidf":
                 self.syntactic_embeder = TfidfVectorizer(
-                    tokenizer=self.tokenize_fn,
-                    preprocessor=lambda x: x,
-                    token_pattern=None
+                    analyzer=self.custom_analyzer, ngram_range=(1, 2), max_features=50000,
                 )
                 self.syntactic_embeds = self.syntactic_embeder.fit_transform(self.contexts)
             else:
@@ -78,7 +86,9 @@ class Syntactic(Retrieval):
     
     def get_scores(self, query):
         if isinstance(self.syntactic_embeder, TfidfVectorizer):
-            query_vector = self.syntactic_embeder.transform([query])
+            if isinstance(query, str):
+                query = [query]
+            query_vector = self.syntactic_embeder.transform(query)
             return cosine_similarity(query_vector, self.syntactic_embeds)
         elif isinstance(self.syntactic_embeder, BM25Plus):
             return self.syntactic_embeder.get_scores(query)
@@ -90,10 +100,15 @@ class Syntactic(Retrieval):
             doc_scores, doc_indices = self.get_relevant_doc(query_or_dataset, k=topk)
             logging.info(f"[Search query] {query_or_dataset}")
 
+            if isinstance(doc_scores[0], list):
+                doc_scores = doc_scores[0]
+            if isinstance(doc_indices[0], list):
+                doc_indices = doc_indices[0]
+
             for i in range(topk):
-                logging.info(f"Top-{i+1} passage with score {doc_scores[0][i]}")
-                logging.info(self.contexts[doc_indices[0][i]])
-            return (doc_scores, [self.contexts[doc_indices[0][i]] for i in range(topk)])
+                logging.info(f"Top-{i+1} passage with score {doc_scores[i]}")
+                logging.info(self.contexts[doc_indices[i]])
+            return (doc_scores, [self.contexts[doc_indices[i]] for i in range(topk)])
 
         elif isinstance(query_or_dataset, Dataset):
             total = []
@@ -116,11 +131,7 @@ class Syntactic(Retrieval):
 
     def get_relevant_doc(self, query: str, k: Optional[int] = 1):
         if self.vectorizer_type == 'tfidf':
-            query_vec = self.transform([query])
-            assert np.sum(query_vec) != 0, "Error: query contains no words in vocab."
-
-            result = query_vec * self.syntactic_embeds.T
-            # result = self.get_scores(query_vec)
+            result = self.get_scores(query)
             if not isinstance(result, np.ndarray):
                 result = result.toarray()
 
@@ -144,11 +155,7 @@ class Syntactic(Retrieval):
     def get_relevant_doc_bulk(
         self, queries: List, k: Optional[int] = 1):
         if self.vectorizer_type == 'tfidf':
-            query_vec = self.transform(queries)
-            assert np.sum(query_vec) != 0, "Error: query contains no words in vocab."
-
-            result = query_vec * self.syntactic_embeds.T
-            # result = self.get_scores(query_vec)
+            result = self.get_scores(queries)
             if not isinstance(result, np.ndarray):
                 result = result.toarray()
             doc_scores = []

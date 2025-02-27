@@ -62,7 +62,6 @@ def retrieve(retriever: Optional[Retrieval], llm, tokenizer, messages, max_seq_l
             _ , contexts = retriever.retrieve(query, topk=topk)
         else:
             contexts = retriever.retrieve(query, topk=topk)
-        print(contexts)
         summary = llm_summary(llm, tokenizer, ' '.join(contexts), max_response_tokens, device=device)
         # summary = truncation(tokenizer, ' '.join(contexts)[:], max_response_tokens)
         logging.info(f"[RAG & Summary] {summary}")

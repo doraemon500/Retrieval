@@ -32,23 +32,9 @@ class Reranker(Retrieval):
         self,
         step1_model: Retrieval,
         step2_model: Retrieval,
-        data_path: Optional[str] = "../../data/",
-        context_path: Optional[str] = "wiki_documents_original.csv",
     ) -> NoReturn:
         self.step1_model = step1_model
         self.step2_model = step2_model
-
-        self.data_path = data_path
-        if isinstance(self.step1_model, Syntactic):
-            self.contexts = self.step1_model.contexts
-        elif isinstance(self.step2_model, Syntactic):
-            self.contexts = self.step2_model.contexts
-        else:
-            with open(os.path.join(data_path, context_path), "r", encoding="utf-8") as f:
-                wiki = pd.read_csv(f)
-            self.contexts = list(dict.fromkeys(wiki['content']))
-        logging.info(f"Lengths of contexts : {len(self.contexts)}")
-        self.ids = list(range(len(self.contexts)))
 
     def _step1_retrieve(self, queries, topk: Optional[int] = 1, alpha: Optional[int]=0.5):
         if isinstance(self.step1_model, HybridSearch):

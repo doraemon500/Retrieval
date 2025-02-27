@@ -116,9 +116,7 @@ class Reranker(Retrieval):
                 doc_contexts = self._step1_retrieve(example['question'], topk, alpha=alpha_1)
                 retrieved_contexts.append(doc_contexts)
 
-        print(retrieved_contexts)
         half_topk = int(topk / 2)
-        print(half_topk)
 
         if isinstance(query_or_dataset, str):
             _, second_retrieved_contexts = self._step2_retrieve(query_or_dataset, retrieved_contexts, half_topk, alpha=alpha_2)

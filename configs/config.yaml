@@ -29,8 +29,8 @@ retriever:
   faiss_index_output_path: "2050iter_flat"
   faiss_chunk_path: "processed_passages"
 
-  step_1_model: "Syntactic" #"Semantic" 
-  step_2_model: "Semantic"  #"Syntactic"
+  step_1_model: "Semantic" 
+  step_2_model: "Syntactic"
 
   rerank: True
   hybrid: False

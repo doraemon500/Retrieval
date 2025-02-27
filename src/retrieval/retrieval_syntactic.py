@@ -54,10 +54,7 @@ class Syntactic(Retrieval):
         else:
             print("Fitting sparse vectorizer and building embeddings.")
             if self.vectorizer_type.lower() == "bm25":
-                for doc in self.contexts:
-                    print(doc)
                 tokenized_corpus = [self.tokenize_fn(doc)['input_ids'] for doc in self.contexts]
-                print(tokenized_corpus)
                 self.syntactic_embeder = BM25Plus(tokenized_corpus, k1=self.k1, b=self.b, delta=self.delta)
             elif self.vectorizer_type.lower() == "tfidf":
                 self.syntactic_embeder = TfidfVectorizer(
@@ -80,7 +77,6 @@ class Syntactic(Retrieval):
         return self.syntactic_embeder.transform(context)
     
     def get_scores(self, query):
-        print(f"get_scores: {query}")
         if isinstance(self.syntactic_embeder, TfidfVectorizer):
             query_vector = self.syntactic_embeder.transform([query])
             return cosine_similarity(query_vector, self.syntactic_embeds)
@@ -94,8 +90,6 @@ class Syntactic(Retrieval):
             doc_scores, doc_indices = self.get_relevant_doc(query_or_dataset, k=topk)
             logging.info(f"[Search query] {query_or_dataset}")
 
-            print(doc_scores)
-            print(doc_indices)
             for i in range(topk):
                 logging.info(f"Top-{i+1} passage with score {doc_scores[0][i]}")
                 logging.info(self.contexts[doc_indices[0][i]])
@@ -136,12 +130,10 @@ class Syntactic(Retrieval):
             return doc_score, doc_indices
         elif self.vectorizer_type == 'bm25':
             tokenized_query = [self.tokenize_fn(query)['input_ids']]
-            print(tokenized_query)
             result = np.array([self.get_scores(query) for query in tokenized_query])
             doc_scores = []
             doc_indices = []
             
-            print(result)
             for scores in result:
                 sorted_result = np.argsort(scores)[-k:][::-1]
                 doc_scores.append(scores[sorted_result].tolist())

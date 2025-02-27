@@ -18,30 +18,43 @@ class DataChunk:
         self.chunked_path = chunked_path
 
     def chunk(self, input_file_path, input_file):
+        chunk_list = []
+        orig_text = []
         if input_file is not None:
             input_txt = input_file
+            for txt in tqdm(input_txt, desc="[chunking]", total=len(input_txt)):
+                encoded_txt = self.tokenizer.encode(txt)
+                if len(encoded_txt) < 5:  # 본문 길이가 subword 5개 미만인 경우 패스
+                    logger.debug(f"title has <5 subwords in its article, passing")
+                    continue
+
+                # article마다 chunk_size 길이의 chunk를 만들어 list에 append. 각 chunk에는 title을 prepend합니다.
+                # ref : DPR paper
+                for start_idx in range(0, len(encoded_txt), self.chunk_size):
+                    end_idx = min(len(encoded_txt), start_idx + self.chunk_size)
+                    chunk = encoded_txt[start_idx:end_idx]
+                    orig_text.append(self.tokenizer.decode(chunk))
+                    chunk_list.append(chunk)
         else:
             with open(input_file_path, "r", encoding="utf8") as f:
                 input_txt = pd.read_csv(input_file_path)
-        chunk_list = []
-        orig_text = []
-        for _ , art in tqdm(input_txt.iterrows(), desc="[chunking]", total=len(input_txt)):
-            title = art['title']
-            text = art['content']
+            for _ , art in tqdm(input_txt.iterrows(), desc="[chunking]", total=len(input_txt)):
+                title = art['title']
+                text = art['content']
 
-            encoded_title = self.tokenizer.encode(title)
-            encoded_txt = self.tokenizer.encode(text)
-            if len(encoded_txt) < 5:  # 본문 길이가 subword 5개 미만인 경우 패스
-                logger.debug(f"title {title} has <5 subwords in its article, passing")
-                continue
+                encoded_title = self.tokenizer.encode(title)
+                encoded_txt = self.tokenizer.encode(text)
+                if len(encoded_txt) < 5:  # 본문 길이가 subword 5개 미만인 경우 패스
+                    logger.debug(f"title {title} has <5 subwords in its article, passing")
+                    continue
 
-            # article마다 chunk_size 길이의 chunk를 만들어 list에 append. 각 chunk에는 title을 prepend합니다.
-            # ref : DPR paper
-            for start_idx in range(0, len(encoded_txt), self.chunk_size):
-                end_idx = min(len(encoded_txt), start_idx + self.chunk_size)
-                chunk = encoded_title + encoded_txt[start_idx:end_idx]
-                orig_text.append(self.tokenizer.decode(chunk))
-                chunk_list.append(chunk)
+                # article마다 chunk_size 길이의 chunk를 만들어 list에 append. 각 chunk에는 title을 prepend합니다.
+                # ref : DPR paper
+                for start_idx in range(0, len(encoded_txt), self.chunk_size):
+                    end_idx = min(len(encoded_txt), start_idx + self.chunk_size)
+                    chunk = encoded_title + encoded_txt[start_idx:end_idx]
+                    orig_text.append(self.tokenizer.decode(chunk))
+                    chunk_list.append(chunk)
         return orig_text, chunk_list
 
     def chunk_and_save_orig_passage(

@@ -76,16 +76,19 @@ class HybridSearch(Retrieval):
             sentence_embeddings = normalize(sentence_embeddings, p=2, dim=1)
             return sentence_embeddings.cpu()
         
-    def hybrid_scale(self, dense_score, sparse_score, alpha: float):
+    def hybrid_scale(self, step1_model_score, step2_model_score, alpha: float):
         if alpha < 0 or alpha > 1:
             raise ValueError("Alpha must be between 0 and 1")
 
-        if isinstance(dense_score, torch.Tensor):
-            dense_score = dense_score.detach().numpy() 
-        if isinstance(sparse_score, torch.Tensor):
-            sparse_score = sparse_score.detach().numpy()  
+        if isinstance(step1_model_score, torch.Tensor):
+            step1_model_score = step1_model_score.detach().numpy() 
+        if isinstance(step2_model_score, torch.Tensor):
+            step2_model_score = step2_model_score.detach().numpy()  
 
-        result = (1 - alpha) * dense_score + alpha * sparse_score
+        step1_model_score = np.array(step1_model_score)
+        step2_model_score = np.array(step2_model_score)
+
+        result = (1 - alpha) * step1_model_score + alpha * step2_model_score
         return result
 
     def retrieve(self, query_or_dataset, topk: Optional[int] = 1, alpha: Optional[float] = 0.5):
@@ -95,6 +98,10 @@ class HybridSearch(Retrieval):
         if isinstance(query_or_dataset, str):
             doc_scores, doc_indices = self.get_relevant_doc(query_or_dataset, alpha, k=topk)
             logging.info(f"[Search query] {query_or_dataset}")
+
+            for i in range(topk):
+                logging.info(f"Top-{i+1} passage with score {doc_scores[i]}")
+                logging.info(self.contexts[doc_indices[i]])
 
             return (doc_scores, [self.contexts[doc_indices[i]] for i in range(topk)])
 
@@ -120,19 +127,32 @@ class HybridSearch(Retrieval):
 
     def get_relevant_doc(self, query: str, alpha: float, k: Optional[int] = 1) -> Tuple[List, List]:
         with timer("query ex search"):
-            tokenized_query = [self.tokenize_fn(query)]
             if isinstance(self.step1_model, Syntactic):
-                step1_score = np.array([self.step1_model.get_scores(query) for query in tokenized_query])
+                if self.step1_model.vectorizer_type.lower() == "bm25":
+                    tokenized_query = [self.tokenize_fn(query)]
+                    step1_score = np.array([self.step1_model.get_scores(query) for query in tokenized_query])
+                elif  self.step1_model.vectorizer_type.lower() == "tfidf":
+                    step1_score = self.step1_model.get_scores(query)
+                    if not isinstance(step1_score, np.ndarray):
+                        step1_score = step1_score.toarray()
             elif isinstance(self.step1_model, Semantic):
                 dense_qvec = self.get_step1_embedding(query=query)
                 step1_score = self.step1_model.get_scores(dense_qvec).numpy()
+
             if isinstance(self.step2_model, Syntactic):
-                step2_score = np.array([self.step2_model.get_scores(query) for query in tokenized_query])
+                if self.step2_model.vectorizer_type.lower() == "bm25":
+                    tokenized_query = [self.tokenize_fn(query)]
+                    step2_score = np.array([self.step2_model.get_scores(query) for query in tokenized_query])
+                elif  self.step2_model.vectorizer_type.lower() == "tfidf":
+                    step2_score = self.step2_model.get_scores(query)
+                    if not isinstance(step2_score, np.ndarray):
+                        step2_score = step2_score.toarray()
             elif isinstance(self.step2_model, Semantic):
                 dense_qvec = self.get_step2_embedding(query=query)
                 step2_score = self.step2_model.get_scores(dense_qvec).numpy()
             result = self.hybrid_scale(step1_score, step2_score, alpha)
         sorted_result = np.argsort(result.squeeze())[::-1]
+        print(sorted_result)
         doc_score = result.squeeze()[sorted_result].tolist()[:k]
         doc_indice = sorted_result.tolist()[:k]
         return doc_score, doc_indice

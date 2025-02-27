@@ -168,6 +168,9 @@ class Semantic(Retrieval):
             doc_scores, doc_contexts = self.get_relevant_doc_with_faiss(query_or_dataset, k=topk)
             logging.info(f"[Search query] {query_or_dataset}")
 
+            for i in range(topk):
+                logging.info(f"Top-{i+1} passage with score {doc_scores[i]}")
+                logging.info(doc_contexts[i])
             return (doc_scores, doc_contexts)
 
         elif isinstance(query_or_dataset, Dataset):

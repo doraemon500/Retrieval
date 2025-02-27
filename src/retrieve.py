@@ -43,6 +43,8 @@ def retrieve(retriever: Optional[Retrieval], llm, tokenizer, messages, max_seq_l
     chat_template_tokens = len_of_chat_template(tokenizer, retriever_cfg) + 10
     max_response_tokens = max_seq_length - (prompt_tokens + chat_template_tokens)
     rag_response_threshold = prompt_tokens + chat_template_tokens
+    logging.info(f"최대 답변 길이는 {max_response_tokens}")
+
     if max_response_tokens < 0: 
         logging.info("[max_response_tokens error] max_response_tokens를 초과함")
         return None
@@ -56,7 +58,11 @@ def retrieve(retriever: Optional[Retrieval], llm, tokenizer, messages, max_seq_l
     logging.info(query)
     logging.info(f"[RAG가 필요한가?] {result}")
     if '필요함' in result:
-        _ , contexts = retriever.retrieve(query, topk=topk)
+        if isinstance(query, str):
+            _ , contexts = retriever.retrieve(query, topk=topk)
+        else:
+            contexts = retriever.retrieve(query, topk=topk)
+        print(contexts)
         summary = llm_summary(llm, tokenizer, ' '.join(contexts), max_response_tokens, device=device)
         # summary = truncation(tokenizer, ' '.join(contexts)[:], max_response_tokens)
         logging.info(f"[RAG & Summary] {summary}")

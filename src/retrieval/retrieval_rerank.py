@@ -119,8 +119,8 @@ class Reranker(Retrieval):
         half_topk = int(topk / 2)
 
         if isinstance(query_or_dataset, str):
-            _, second_retrieved_contexts = self._step2_retrieve(query_or_dataset, retrieved_contexts, half_topk, alpha=alpha_2)
-            return second_retrieved_contexts
+            second_retrieved_scores, second_retrieved_contexts = self._step2_retrieve(query_or_dataset, retrieved_contexts, half_topk, alpha=alpha_2)
+            return (second_retrieved_scores, second_retrieved_contexts)
         elif isinstance(query_or_dataset, Dataset):
             second_retrieved_contexts = []
             for idx, example in enumerate(tqdm(query_or_dataset, desc="[Rerank second retrieval] ")):

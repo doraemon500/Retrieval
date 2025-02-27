@@ -2,6 +2,7 @@ import argparse
 import datetime
 import os
 import random
+import logging
 from dotenv import load_dotenv
 
 import numpy as np
@@ -194,7 +195,7 @@ def main():
     )
 
     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    print(generated_text)
+    logging.info(f"생성된 답변: {generated_text}")
     
 
 if __name__=="__main__":

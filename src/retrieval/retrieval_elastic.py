@@ -68,7 +68,7 @@ class Elastic(Retrieval):
                 "score": hit["_score"],
                 "source": hit["_source"]
             })
-        return results
+        return (None, results)
 
 if __name__ == "__main__":
     pass

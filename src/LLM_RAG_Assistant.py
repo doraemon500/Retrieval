@@ -20,6 +20,7 @@ def llm_summary(llm, tokenizer, retrieved_contexts, max_response_tokens, device)
          )},
         {"role": "user", "content": ""}
     ]
+
     inputs = tokenizer.apply_chat_template(
         messages,
         truncation=True,

@@ -35,7 +35,7 @@ retriever:
   rerank: True
   hybrid: False
 
-  rag_system_prompt: "지문을 읽고 참고문서를 참고하여 질문의 답을 구하세요."
+  rag_system_prompt: "지문을 읽고 참고문서를 참고하여 질문에 적절한 답변을 해주세요."
   rag_response_threshold: 500 
 
 datasets:

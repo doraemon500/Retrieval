@@ -2,8 +2,11 @@
 
 ### Setting
 Model: "Qwen/Qwen2.5-0.5B-Instruct"
+
 Max_New_Tokens: 500
+
 RAG: Rerank – Step 1: Semantic Retrieval with FAISS (BGE-m3), Step 2: Syntactic Re-ranking with BM25
+
 Query: "지미 카터"
 
 ### Without RAG

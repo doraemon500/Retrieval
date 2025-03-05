@@ -1,3 +1,10 @@
+# Installation
+### pip install -r requirements.txt
+
+# 실행
+### python3 run.py
+
+
 # 예제1
 
 ### Setting

@@ -4,6 +4,10 @@
 # 실행
 ### python3 run.py
 
+# Env
+### ElasticSearch Setting
+https://www.elastic.co/downloads/elasticsearch
+
 
 # 예제1
 
